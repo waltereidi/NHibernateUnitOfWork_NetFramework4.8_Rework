@@ -91,5 +91,6 @@ namespace NHibernateRepository.Tests
             Assert.AreEqual(1, products.Count);
             Assert.AreEqual("Apples", products[0].Name);
         }
+
     }
 }
