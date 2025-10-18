@@ -17,18 +17,20 @@ namespace NHibernateUnitOfWork.Tests
             var factory = _mocks.DynamicMock<IUnitOfWorkFactory>();
             var unitOfWork = _mocks.DynamicMock<IUnitOfWork>();
 
-            // brute force attack to set my own factory via reflection
+            // força o uso do factory de mock via reflection
             var fieldInfo = typeof(UnitOfWork).GetField("_unitOfWorkFactory",
-                BindingFlags.Static | BindingFlags.SetField | BindingFlags.NonPublic);
+                BindingFlags.Static | BindingFlags.NonPublic);
             fieldInfo.SetValue(null, factory);
 
             using (_mocks.Record())
             {
                 Expect.Call(factory.Create()).Return(unitOfWork);
             }
+
             using (_mocks.Playback())
             {
                 var uow = UnitOfWork.Start();
+                Assert.NotNull(uow);
             }
         }
     }
@@ -36,126 +38,109 @@ namespace NHibernateUnitOfWork.Tests
     [TestFixture]
     public class UnitOfWork_With_Factory_Fixture
     {
-        //private readonly MockRepository _mocks = new MockRepository();
-        //private IUnitOfWorkFactory _factory;
-        //private IUnitOfWork _unitOfWork;
-        //private ISession _session;
+        private readonly MockRepository _mocks = new MockRepository();
+        private IUnitOfWorkFactory _factory;
+        private IUnitOfWork _unitOfWork;
+        private ISession _session;
 
-        //[TestFixtureSetUp]
-        //public void TestFixtureSetUp()
-        //{
-        //    ResetUnitOfWork();
-        //}
+        [OneTimeSetUp]
+        public void TestFixtureSetUp()
+        {
+            ResetUnitOfWork();
+        }
 
-        //[SetUp]
-        //public void SetupContext()
-        //{
-        //    _factory = _mocks.DynamicMock<IUnitOfWorkFactory>();
-        //    _unitOfWork = _mocks.DynamicMock<IUnitOfWork>();
-        //    _session = _mocks.DynamicMock<ISession>();
+        [SetUp]
+        public void SetupContext()
+        {
+            _factory = _mocks.DynamicMock<IUnitOfWorkFactory>();
+            _unitOfWork = _mocks.DynamicMock<IUnitOfWork>();
+            _session = _mocks.DynamicMock<ISession>();
 
-        //    InstrumentUnitOfWork();
+            InstrumentUnitOfWork();
 
-        //    _mocks.BackToRecordAll();
-        //    SetupResult.For(_factory.Create()).Return(_unitOfWork);
-        //    SetupResult.For(_factory.CurrentSession).Return(_session);
-        //    _mocks.ReplayAll();
-        //}
+            _mocks.BackToRecordAll();
+            SetupResult.For(_factory.Create()).Return(_unitOfWork);
+            SetupResult.For(_factory.CurrentSession).Return(_session);
+            _mocks.ReplayAll();
+        }
 
-        //[TearDown]
-        //public void TearDownContext()
-        //{
-        //    _mocks.VerifyAll();
+        [TearDown]
+        public void TearDownContext()
+        {
+            _mocks.VerifyAll();
+            ResetUnitOfWork();
+        }
 
-        //    ResetUnitOfWork();
-        //}
+        private void InstrumentUnitOfWork()
+        {
+            var fieldInfo = typeof(UnitOfWork).GetField("_unitOfWorkFactory",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            fieldInfo.SetValue(null, _factory);
+        }
 
-        //private void InstrumentUnitOfWork()
-        //{
-        //    // brute force attack to set my own factory via reflection
-        //    var fieldInfo = typeof(UnitOfWork).GetField("_unitOfWorkFactory",
-        //                        BindingFlags.Static | BindingFlags.SetField | BindingFlags.NonPublic);
-        //    fieldInfo.SetValue(null, _factory);
-        //}
+        private void ResetUnitOfWork()
+        {
+            var propertyInfo = typeof(UnitOfWork).GetProperty("CurrentUnitOfWork",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            propertyInfo?.SetValue(null, null, null);
+        }
 
-        //private void ResetUnitOfWork()
-        //{
-        //    // assert that the UnitOfWork is reset
-        //    var propertyInfo = typeof(UnitOfWork).GetProperty("CurrentUnitOfWork",
-        //                        BindingFlags.Static | BindingFlags.SetProperty | BindingFlags.NonPublic);
-        //    propertyInfo.SetValue(null, null, null);
-        //    //var fieldInfo = typeof(UnitOfWork).GetField("_innerUnitOfWork",
-        //    //                    BindingFlags.Static | BindingFlags.SetField | BindingFlags.NonPublic);
-        //    //fieldInfo.SetValue(null, null);
-        //}
+        [Test]
+        public void Can_Start_and_Dispose_UnitOfWork()
+        {
+            var uow = UnitOfWork.Start();
+            Assert.NotNull(uow);
+            uow.Dispose();
+        }
 
-        //[Test]
-        //public void Can_Start_and_Dispose_UnitOfWork()
-        //{
-        //    IUnitOfWork uow = UnitOfWork.Start();
-        //    uow.Dispose();
-        //}
+        [Test]
+        public void Can_access_current_unit_of_work()
+        {
+            var uow = UnitOfWork.Start();
+            var current = UnitOfWork.Current;
+            Assert.NotNull(current);
+            uow.Dispose();
+        }
 
-        //[Test]
-        //public void Can_access_current_unit_of_work()
-        //{
-        //    IUnitOfWork uow = UnitOfWork.Start();
-        //    var current = UnitOfWork.Current;
-        //    uow.Dispose();
-        //}
+        [Test]
+        public void Accessing_Current_UnitOfWork_if_not_started_throws()
+        {
+            Assert.Throws<InvalidOperationException>(() => { var _ = UnitOfWork.Current; });
+        }
 
-        //[Test]
-        //public void Accessing_Current_UnitOfWork_if_not_started_throws()
-        //{
-        //    try
-        //    {
-        //        var current = UnitOfWork.Current;
-        //    }
-        //    catch (InvalidOperationException ex)
-        //    { }
-        //}
+        [Test]
+        public void Starting_UnitOfWork_if_already_started_throws()
+        {
+            UnitOfWork.Start();
+            Assert.Throws<InvalidOperationException>(() => UnitOfWork.Start());
+        }
 
-        //[Test]
-        //public void Starting_UnitOfWork_if_already_started_throws()
-        //{
-        //    UnitOfWork.Start();
-        //    try
-        //    {
-        //        UnitOfWork.Start();
-        //    }
-        //    catch (InvalidOperationException ex)
-        //    { }
-        //}
+        [Test]
+        public void Can_test_if_UnitOfWork_Is_Started()
+        {
+            Assert.IsFalse(UnitOfWork.IsStarted);
+            var uow = UnitOfWork.Start();
+            Assert.IsTrue(UnitOfWork.IsStarted);
+            uow.Dispose();
+        }
 
-        //[Test]
-        //public void Can_test_if_UnitOfWork_Is_Started()
-        //{
-        //    Assert.Equals(false, UnitOfWork.IsStarted);
+        [Test]
+        public void Can_get_valid_current_session_if_UoW_is_started()
+        {
+            using (UnitOfWork.Start())
+            {
+                ISession session = UnitOfWork.CurrentSession;
+                Assert.NotNull(session);
+            }
+        }
 
-        //    IUnitOfWork uow = UnitOfWork.Start();
-        //    Assert.Equals(false ,UnitOfWork.IsStarted);
-        //}
-
-        //[Test]
-        //public void Can_get_valid_current_session_if_UoW_is_started()
-        //{
-        //    using (UnitOfWork.Start())
-        //    {
-        //        ISession session = UnitOfWork.CurrentSession;
-        //        Assert.Equals(null ,session);
-        //    }
-        //}
-
-        //[Test]
-        //public void Get_current_session_if_UoW_is_not_started_throws()
-        //{
-        //    try
-        //    {
-        //        ISession session = UnitOfWork.CurrentSession;
-        //    }
-        //    catch (InvalidOperationException ex)
-        //    { }
-        //}
+        [Test]
+        public void Get_current_session_if_UoW_is_not_started_throws()
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                var _ = UnitOfWork.CurrentSession;
+            });
+        }
     }
-
 }

@@ -23,26 +23,26 @@ namespace NHibernateUnitOfWork.Tests
         [Test]
         public void Can_create_UnitOfWorkImplementor()
         {
-            using(_mocks.Record())
-            {
-                
-            }
+            using (_mocks.Record()) { }
+
             using (_mocks.Playback())
             {
                 _uow = new UnitOfWorkImplementor(_factory, _session);
-                //Assert.AreSame(_factory, ((UnitOfWorkImplementor)_uow).Factory);
-                //Assert.AreSame(_session, ((UnitOfWorkImplementor)_uow).Session);
+
+                Assert.AreSame(_factory, ((UnitOfWorkImplementor)_uow).Factory, "Factory incorreta.");
+                Assert.AreSame(_session, ((UnitOfWorkImplementor)_uow).Session, "Sessão incorreta.");
             }
         }
 
         [Test]
         public void Can_Dispose_UnitOfWorkImplementor()
         {
-            using(_mocks.Record())
+            using (_mocks.Record())
             {
                 Expect.Call(() => _factory.DisposeUnitOfWork(null)).IgnoreArguments();
                 Expect.Call(_session.Dispose);
             }
+
             using (_mocks.Playback())
             {
                 _uow = new UnitOfWorkImplementor(_factory, _session);
@@ -53,10 +53,11 @@ namespace NHibernateUnitOfWork.Tests
         [Test]
         public void Can_Flush_UnitOfWorkImplementor()
         {
-            using(_mocks.Record())
+            using (_mocks.Record())
             {
                 Expect.Call(_session.Flush);
             }
+
             using (_mocks.Playback())
             {
                 _uow = new UnitOfWorkImplementor(_factory, _session);
@@ -67,15 +68,16 @@ namespace NHibernateUnitOfWork.Tests
         [Test]
         public void Can_BeginTransaction()
         {
-            using(_mocks.Record())
+            using (_mocks.Record())
             {
-                Expect.Call(_session.BeginTransaction()).Return(null);
+                Expect.Call(_session.BeginTransaction()).Return(_mocks.DynamicMock<ITransaction>());
             }
+
             using (_mocks.Playback())
             {
                 _uow = new UnitOfWorkImplementor(_factory, _session);
                 var transaction = _uow.BeginTransaction();
-                //Assert.IsNotNull(transaction);
+                Assert.IsNotNull(transaction, "Transação não foi criada.");
             }
         }
 
@@ -83,15 +85,17 @@ namespace NHibernateUnitOfWork.Tests
         public void Can_BeginTransaction_specifying_isolation_level()
         {
             var isolationLevel = IsolationLevel.Serializable;
-            using(_mocks.Record())
-            {   
-                Expect.Call(_session.BeginTransaction(isolationLevel)).Return(null);
+
+            using (_mocks.Record())
+            {
+                Expect.Call(_session.BeginTransaction(isolationLevel)).Return(_mocks.DynamicMock<ITransaction>());
             }
+
             using (_mocks.Playback())
             {
                 _uow = new UnitOfWorkImplementor(_factory, _session);
                 var transaction = _uow.BeginTransaction(isolationLevel);
-                //Assert.IsNotNull(transaction);
+                Assert.IsNotNull(transaction, "Transação com isolamento específico não foi criada.");
             }
         }
 
@@ -100,15 +104,17 @@ namespace NHibernateUnitOfWork.Tests
         {
             var tx = _mocks.CreateMock<ITransaction>();
             var session = _mocks.DynamicMock<ISession>();
+
             SetupResult.For(session.BeginTransaction(IsolationLevel.ReadCommitted)).Return(tx);
 
-            _uow = _mocks.PartialMock<UnitOfWorkImplementor>(_factory, _session);
+            _uow = _mocks.PartialMock<UnitOfWorkImplementor>(_factory, session);
 
             using (_mocks.Record())
             {
                 Expect.Call(tx.Commit);
                 Expect.Call(tx.Dispose);
             }
+
             using (_mocks.Playback())
             {
                 _uow = new UnitOfWorkImplementor(_factory, session);
@@ -121,6 +127,7 @@ namespace NHibernateUnitOfWork.Tests
         {
             var tx = _mocks.CreateMock<ITransaction>();
             var session = _mocks.DynamicMock<ISession>();
+
             SetupResult.For(session.BeginTransaction(IsolationLevel.Serializable)).Return(tx);
 
             _uow = _mocks.PartialMock<UnitOfWorkImplementor>(_factory, session);
@@ -130,6 +137,7 @@ namespace NHibernateUnitOfWork.Tests
                 Expect.Call(tx.Commit);
                 Expect.Call(tx.Dispose);
             }
+
             using (_mocks.Playback())
             {
                 _uow.TransactionalFlush(IsolationLevel.Serializable);
